@@ -29,11 +29,15 @@ export function SiteHeader() {
           <img src={logo} alt="Box Game Studio" width={364} height={132} className="h-9 w-auto lg:h-11" />
         </a>
 
-        <nav aria-label="Principal" className="hidden md:block">
-          <ul className="flex items-center gap-8 text-sm font-semibold text-mist">
+        {/* Itens em caixa alta, espaçados, distribuídos por toda a largura depois do logo */}
+        <nav aria-label="Principal" className="ml-[6vw] hidden flex-1 md:block">
+          <ul className="flex items-center justify-between text-xs font-medium tracking-[0.2em] text-snow uppercase lg:text-[15px]">
             {NAV_LINKS.map((link) => (
               <li key={link.href}>
-                <a href={link.href} className="transition-colors hover:text-cyan">
+                <a
+                  href={link.href}
+                  className="relative py-2 transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-px after:origin-left after:scale-x-0 after:bg-cyan after:transition-transform hover:text-cyan hover:after:scale-x-100"
+                >
                   {link.label}
                 </a>
               </li>

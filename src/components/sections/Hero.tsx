@@ -1,8 +1,9 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { ArrowDown, ArrowRight, Play, Sprout, Volleyball } from 'lucide-react'
 import { createHeroWorld, HERO_WORLD_REVEAL_AT } from '@/components/three/hero-world'
 import { Button } from '@/components/ui/button'
 import { gsap, ScrollTrigger, SplitText, useGSAP } from '@/lib/gsap'
+import { registerStops } from '@/lib/scroll-stops'
 
 /** Quando a cena 3D entra na timeline principal. */
 const WORLD_START = 0.15
@@ -45,6 +46,9 @@ export function Hero() {
   const nextTitleRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<HTMLDivElement>(null)
   const cardsRef = useRef<HTMLDivElement>(null)
+
+  // Primeira parada da navegação lateral
+  useEffect(() => registerStops([{ id: 'inicio', label: 'Início', order: 0, getY: () => 0 }]), [])
 
   useGSAP(
     () => {

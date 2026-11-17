@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { ArrowRight, Sprout, Volleyball } from 'lucide-react'
 import cubeSymbol from '@/assets/brand/simbolo-cubo.svg'
 import { gsap, useGSAP } from '@/lib/gsap'
+import { registerStops } from '@/lib/scroll-stops'
 import { SCREEN_QUADS } from './tablet/screen-quads'
 
 /**
@@ -29,7 +30,7 @@ const SETTLE_TO = 351
 /** Cor da tela acesa do tablet (amostrada do vídeo). */
 const SCREEN_COLOR = '#6af3f0'
 /** Duração de cada etapa, em alturas de tela de scroll (a cena fica fixa o tempo todo). */
-const STEPS = { frames: 3.5, invite: 0.8, perGame: 1.1 }
+const STEPS = { frames: 3.5, invite: 1, perGame: 1.2, slide: 0.6, hold: 0.3 }
 
 const GAMES = [
   {
@@ -79,6 +80,7 @@ const frameUrl = (index: number) => `${import.meta.env.BASE_URL}tablet/${String(
 export function TabletSection() {
   const rootRef = useRef<HTMLElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
+  const zoomRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fillRef = useRef<HTMLDivElement>(null)
@@ -193,7 +195,16 @@ export function TabletSection() {
         gsap.set(inviteRef.current, { autoAlpha: 1 })
         load()
         render(FRAME_COUNT - 1)
-        return cleanup
+        // Sem cena fixa, cada parada é a posição do próprio painel na página
+        const pageY = (id: string) => (document.getElementById(id)?.getBoundingClientRect().top ?? 0) + window.scrollY
+        const unregisterStops = registerStops([
+          { id: 'jogos', label: 'Jogos', order: 10, getY: () => pageY('jogos') },
+          ...GAMES.map((game, i) => ({ id: game.id, label: game.name, order: 11 + i, getY: () => pageY(game.id) })),
+        ])
+        return () => {
+          unregisterStops()
+          cleanup()
+        }
       }
 
       // Entrada: o azul-noite do hero continua por cima da sala e se desfaz enquanto a
@@ -203,11 +214,11 @@ export function TabletSection() {
         .timeline({ scrollTrigger: { trigger: root, start: 'top bottom', end: 'top top', scrub: true } })
         .fromTo(veilRef.current, { opacity: 0.5 }, { opacity: 0, ease: 'power1.out', duration: 0.75 }, 0)
         .fromTo(edgeRef.current, { opacity: 1 }, { opacity: 0, ease: 'power1.in', duration: 0.45 }, 0.35)
-        .fromTo(frameEl, { scale: 1.08 }, { scale: 1, ease: 'none', duration: 1 }, 0)
+        .fromTo(zoomRef.current, { scale: 1.08 }, { scale: 1, ease: 'none', duration: 1 }, 0)
 
       // Cena fixa: quadros do tablet → convite na tela ciano → jogos na horizontal.
       // A timeline usa "alturas de tela" como unidade de duração.
-      const total = STEPS.frames + STEPS.invite + STEPS.perGame * GAMES.length
+      const total = STEPS.frames + STEPS.invite + STEPS.perGame * GAMES.length + STEPS.hold
       const playhead = { frame: 0 }
       const scene = gsap.timeline({
         defaults: { ease: 'none' },
@@ -238,23 +249,42 @@ export function TabletSection() {
           inviteAt + 0.15,
         )
 
-      // Jogos: a trilha desliza; o conteúdo de cada painel entra um pouco depois do painel
+      // Jogos: a trilha anda um painel por vez e para em cada jogo; o conteúdo do painel
+      // entra logo atrás. A trilha tem (jogos + 1) painéis de mesma largura.
       const slideAt = inviteAt + STEPS.invite
-      scene.to(
-        track,
-        { x: () => -(track.scrollWidth - root.clientWidth), duration: STEPS.perGame * GAMES.length },
-        slideAt,
-      )
+      const panels = GAMES.length + 1
       gsap.utils.toArray<HTMLElement>('[data-game-panel]').forEach((gamePanel, i) => {
-        scene.from(
-          gamePanel.querySelectorAll('[data-reveal]'),
-          { x: 140, autoAlpha: 0, duration: 0.55, stagger: 0.06, ease: 'power2.out' },
-          slideAt + i * STEPS.perGame + 0.35,
-        )
+        const at = slideAt + i * STEPS.perGame
+        scene
+          .to(track, { xPercent: (-100 / panels) * (i + 1), duration: STEPS.slide, ease: 'power2.inOut' }, at)
+          .from(
+            gamePanel.querySelectorAll('[data-reveal]'),
+            { x: 140, autoAlpha: 0, duration: 0.45, stagger: 0.05, ease: 'power2.out' },
+            at + STEPS.slide * 0.55,
+          )
+          // Ponto da navegação lateral: painel parado e conteúdo já à mostra
+          .addLabel(GAMES[i].id, at + STEPS.slide + 0.3)
       })
 
+      // Pausa no último jogo e duração fechada em `total`: 1 unidade = 1 altura de tela
+      scene.set({}, {}, total)
+
+      // Paradas da navegação lateral: o começo da cena (menino) e cada jogo
+      const unregisterStops = registerStops([
+        { id: 'jogos', label: 'Jogos', order: 10, getY: () => scene.scrollTrigger?.start ?? 0 },
+        ...GAMES.map((game, i) => ({
+          id: game.id,
+          label: game.name,
+          order: 11 + i,
+          getY: () => scene.scrollTrigger?.labelToScroll(game.id) ?? 0,
+        })),
+      ])
+
       render(0)
-      return cleanup
+      return () => {
+        unregisterStops()
+        cleanup()
+      }
     },
     { scope: rootRef },
   )
@@ -266,28 +296,32 @@ export function TabletSection() {
       aria-label="Nossos jogos"
       className="relative h-svh overflow-hidden bg-navy-950 motion-reduce:h-auto"
     >
-      <div ref={trackRef} className="flex h-full w-max motion-reduce:w-full motion-reduce:flex-col">
+      {/* Trilha com 3 painéis (tablet + 2 jogos), cada um com 1/3 da trilha = largura da seção */}
+      <div ref={trackRef} className="flex h-full w-[300%] motion-reduce:w-full motion-reduce:flex-col">
         {/* Painel 1: o menino, o tablet e o convite */}
-        <div className="relative h-svh w-screen shrink-0 overflow-hidden motion-reduce:w-full">
-          {/* Quadro 16:9: cobre a tela no desktop; no celular cabe inteiro na largura */}
-          <div
-            ref={frameRef}
-            className="absolute top-1/2 left-1/2 aspect-video w-[min(100vw,177.78svh)] -translate-x-1/2 -translate-y-1/2 overflow-hidden lg:w-[max(100vw,177.78svh)]"
-          >
-            <canvas ref={canvasRef} width={1600} height={900} aria-hidden className="absolute inset-0 size-full" />
-            <div ref={fillRef} aria-hidden className="absolute inset-0 opacity-0" style={{ background: SCREEN_COLOR }} />
+        <div className="relative h-svh w-1/3 shrink-0 overflow-hidden motion-reduce:w-full">
+          {/* Zoom de entrada num invólucro próprio: o GSAP não mexe no centralizado do quadro */}
+          <div ref={zoomRef} className="absolute inset-0">
+            {/* Quadro 16:9: cobre a tela no desktop; no celular cabe inteiro na largura */}
             <div
-              ref={panelRef}
-              aria-hidden
-              className="absolute top-0 left-0 grid origin-top-left place-items-center opacity-0 will-change-transform"
-              style={{ width: PANEL_WIDTH, height: PANEL_HEIGHT }}
+              ref={frameRef}
+              className="absolute top-1/2 left-1/2 aspect-video w-[min(100vw,177.78svh)] -translate-x-1/2 -translate-y-1/2 overflow-hidden lg:w-[max(100vw,177.78svh)]"
             >
-              <img
-                ref={symbolRef}
-                src={cubeSymbol}
-                alt=""
-                className="h-auto max-h-[50%] w-[34%] object-contain drop-shadow-[0_6px_18px_rgb(0_60_70/0.25)]"
-              />
+              <canvas ref={canvasRef} width={1600} height={900} aria-hidden className="absolute inset-0 size-full" />
+              <div ref={fillRef} aria-hidden className="absolute inset-0 opacity-0" style={{ background: SCREEN_COLOR }} />
+              <div
+                ref={panelRef}
+                aria-hidden
+                className="absolute top-0 left-0 grid origin-top-left place-items-center opacity-0 will-change-transform"
+                style={{ width: PANEL_WIDTH, height: PANEL_HEIGHT }}
+              >
+                <img
+                  ref={symbolRef}
+                  src={cubeSymbol}
+                  alt=""
+                  className="h-auto max-h-[50%] w-[34%] object-contain drop-shadow-[0_6px_18px_rgb(0_60_70/0.25)]"
+                />
+              </div>
             </div>
           </div>
 
@@ -324,7 +358,7 @@ export function TabletSection() {
             id={game.id}
             data-game-panel
             aria-labelledby={`${game.id}-title`}
-            className={`relative flex h-svh w-screen shrink-0 items-center overflow-hidden px-3.5 pt-20 pb-8 motion-reduce:w-full lg:px-4.5 lg:pt-24 ${game.panel}`}
+            className={`relative flex h-svh w-1/3 shrink-0 items-center overflow-hidden px-3.5 pt-20 pb-8 motion-reduce:w-full lg:px-4.5 lg:pt-24 ${game.panel}`}
           >
             <div className="mx-auto grid w-full max-w-[1600px] items-center gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
               {/* Arte provisória (até chegarem imagens dos jogos) */}
