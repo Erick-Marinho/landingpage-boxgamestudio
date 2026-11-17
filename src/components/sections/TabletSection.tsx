@@ -1,55 +1,45 @@
 import { useRef } from 'react'
-import { ArrowRight, Sprout, Volleyball } from 'lucide-react'
-import cubeSymbol from '@/assets/brand/simbolo-cubo.svg'
+import { ArrowRight } from 'lucide-react'
 import { gsap, useGSAP } from '@/lib/gsap'
 import { registerStops } from '@/lib/scroll-stops'
-import { SCREEN_QUADS } from './tablet/screen-quads'
+import { GameTablet } from './tablet/GameTablet'
 
 /**
  * Seção do tablet + jogos, numa cena fixa só:
  *
- * 1. Tablet: a câmera gira em volta do menino no sofá e mergulha na tela do tablet, onde
- *    aparece o símbolo da marca. São 360 quadros (vídeo gerado e tratado à parte) ligados
- *    ao scroll. O símbolo é HTML: uma homografia (CSS matrix3d) o encaixa nos cantos da
- *    tela rastreados em cada quadro (`SCREEN_QUADS`). No fim, a tela "assenta": vira um
- *    retângulo reto e cheio, e a cor da tela cobre tudo.
- * 2. Convite: na tela ciano, o símbolo sobe e entra a chamada para os jogos.
- * 3. Jogos (scroll horizontal): a tela ciano desliza para a esquerda e entram, lado a lado,
+ * 1. Tablet: a câmera dá a volta no menino no sofá e se aproxima do tablet, onde ele joga
+ *    Vida na Fazenda (o jogo veio gerado junto com a cena). São 193 quadros (24 fps) ligados
+ *    ao scroll; entre dois quadros o canvas faz uma fusão, para o movimento não andar aos
+ *    saltos. O último quadro deixa a tela do tablet nos dois terços da direita.
+ * 2. Chamada: o texto entra no terço esquerdo e depois voa para dentro da tela do tablet,
+ *    que acende ao recebê-lo.
+ * 3. Jogos (scroll horizontal): a cena desliza para a esquerda e entram, lado a lado,
  *    Vida na Fazenda e Spike Rush — cada um com a sua atmosfera.
  */
 
-const FRAME_COUNT = 360
-/** Coordenadas dos cantos rastreados (vídeo original). */
+const FRAME_COUNT = 193
+/** Vídeo de origem: as coordenadas abaixo estão nessa escala. */
 const SOURCE_WIDTH = 1920
-/** Painel do símbolo, na proporção da tela do tablet. */
-const PANEL_WIDTH = 1690
-const PANEL_HEIGHT = 1000
-/** Quadros (base 0) em que a tela inclinada assenta num retângulo reto e cheio. */
-const SETTLE_FROM = 329
-const SETTLE_TO = 351
-/** Cor da tela acesa do tablet (amostrada do vídeo). */
-const SCREEN_COLOR = '#6af3f0'
+const SOURCE_HEIGHT = 1080
+/** Tela do tablet no último quadro (medida no vídeo de origem). */
+const SCREEN = { left: 614, top: 172, right: 1840, bottom: 869 }
 /**
- * Telas mais estreitas que 16:9 (celular em pé) recortam o vídeo nas laterais. O recorte
- * segue este ponto (x no vídeo original): [quadro, x]. Rosto e tablet não cabem juntos
- * num celular em pé, então o recorte começa no rosto (com a borda do tablet) e vai até o
- * tablet enquanto a câmera gira, como uma panorâmica. A partir de SCREEN_TRACKED_FROM vale
- * o centro da tela rastreada, e no assentamento o centro do vídeo (onde fica o símbolo).
+ * Telas mais estreitas que 16:9 recortam o vídeo nas laterais. O recorte segue este ponto
+ * (x no vídeo de origem): [quadro, x]. Começa entre o rosto e o tablet, acompanha o tablet
+ * na volta da câmera e termina no centro da tela dele.
  */
 const CROP_FOCUS: [number, number][] = [
-  [0, 820],
-  [50, 860],
-  [95, 1010],
-  [120, 1080],
-  [180, 1110],
-  [230, 1110],
-  [252, 1090],
+  [0, 850],
+  [24, 1000],
+  [48, 1040],
+  [84, 955],
+  [120, 914],
+  [144, 998],
+  [168, 1186],
+  [FRAME_COUNT - 1, (SCREEN.left + SCREEN.right) / 2],
 ]
-const SCREEN_TRACKED_FROM = 253
-/** No fim, o símbolo ocupa no máximo esta fração da largura da tela (celular). */
-const SYMBOL_MAX_SCREEN = 0.6
 /** Duração de cada etapa, em alturas de tela de scroll (a cena fica fixa o tempo todo). */
-const STEPS = { frames: 3.5, invite: 1, perGame: 1.2, slide: 0.6, hold: 0.3 }
+const STEPS = { frames: 3.5, text: 1.2, perGame: 1.2, slide: 0.6, hold: 0.3 }
 
 const GAMES = [
   {
@@ -64,10 +54,11 @@ const GAMES = [
     highlights: ['Criação e personalização', 'Animais e plantações', 'Amigos e vizinhos'],
     cta: 'Construir minha fazenda',
     note: 'Grátis para jogar no navegador.',
-    icon: Sprout,
+    // Gravação do jogo (public/games): vídeo e quadro de capa
+    video: 'games/vida-na-fazenda.mp4',
+    poster: 'games/vida-na-fazenda.webp',
     // Fim de tarde no campo: céu claro, sol e colinas
     panel: 'bg-[linear-gradient(180deg,#bfe8ff_0%,#e6f7ff_45%,#fff4d6_100%)] text-navy-950',
-    art: 'bg-[radial-gradient(circle_at_72%_26%,#fff3b0_0,#ffd25e_9%,transparent_10%),radial-gradient(ellipse_120%_60%_at_20%_100%,#3f9d4f_0,#3f9d4f_45%,transparent_46%),radial-gradient(ellipse_120%_55%_at_85%_100%,#6cc46b_0,#6cc46b_48%,transparent_49%),linear-gradient(180deg,#7dd3fc_0%,#bae6fd_60%,#fef3c7_100%)]',
     muted: 'text-navy-800/80',
     chip: 'border-navy-950/15 bg-white/60',
     button: 'bg-[#2f8f46] text-white shadow-[0_4px_0_0_#1d5e2d] hover:bg-[#37a352]',
@@ -84,10 +75,10 @@ const GAMES = [
     highlights: ['Vôlei 3v3', 'Personagens com habilidades únicas', 'Partidas online no app'],
     cta: 'Entrar em quadra',
     note: 'Grátis para jogar. Disponível para testes no Android.',
-    icon: Volleyball,
+    video: 'games/spike-rush.mp4',
+    poster: 'games/spike-rush.webp',
     // Quadra de praia ao entardecer: energia, sol forte e areia
     panel: 'bg-[radial-gradient(ellipse_at_70%_20%,rgb(255_138_31/0.35),transparent_55%),linear-gradient(180deg,var(--color-navy-900)_0%,#1b1440_100%)] text-snow',
-    art: 'bg-[radial-gradient(circle_at_78%_22%,#fff7ed_0,#ffd08a_7%,transparent_8%),linear-gradient(180deg,#fb923c_0%,#f97316_30%,#38bdf8_30.5%,#0ea5e9_58%,#fcd34d_58.5%,#f59e0b_100%)]',
     muted: 'text-mist',
     chip: 'border-white/15 bg-white/5',
     button: 'bg-orange text-navy-950 shadow-[0_4px_0_0_var(--color-ember)] hover:bg-orange-soft',
@@ -102,10 +93,10 @@ export function TabletSection() {
   const zoomRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const fillRef = useRef<HTMLDivElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  const symbolRef = useRef<HTMLImageElement>(null)
-  const inviteRef = useRef<HTMLDivElement>(null)
+  const screenRef = useRef<HTMLDivElement>(null)
+  const textBoxRef = useRef<HTMLDivElement>(null)
+  const textRef = useRef<HTMLDivElement>(null)
+  const shadeRef = useRef<HTMLDivElement>(null)
   const veilRef = useRef<HTMLDivElement>(null)
   const edgeRef = useRef<HTMLDivElement>(null)
 
@@ -115,98 +106,82 @@ export function TabletSection() {
       const track = trackRef.current
       const frameEl = frameRef.current
       const canvas = canvasRef.current
-      const fill = fillRef.current
-      const panel = panelRef.current
+      const textBox = textBoxRef.current
+      const text = textRef.current
       const ctx = canvas?.getContext('2d')
-      if (!root || !track || !frameEl || !canvas || !fill || !panel || !ctx) return
+      if (!root || !track || !frameEl || !canvas || !textBox || !text || !ctx) return
 
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const desktop = window.matchMedia('(min-width: 1024px)')
       const frames: HTMLImageElement[] = []
       let wanted = reducedMotion ? FRAME_COUNT - 1 : 0
       let drawn = -1
 
-      const draw = (index: number) => {
-        const img = frames[index]
-        if (!img?.complete || !img.naturalWidth) return
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        drawn = index
+      const ready = (img?: HTMLImageElement) => !!img?.complete && !!img.naturalWidth
+
+      /** Desenha a posição `pos` (fracionária): o quadro de baixo e, por cima, a fusão com o seguinte. */
+      const draw = (pos: number) => {
+        const i = Math.floor(pos)
+        const mix = pos - i
+        if (!ready(frames[i])) return
+        ctx.globalAlpha = 1
+        ctx.drawImage(frames[i], 0, 0, canvas.width, canvas.height)
+        if (mix > 0.02 && ready(frames[i + 1])) {
+          ctx.globalAlpha = mix
+          ctx.drawImage(frames[i + 1], 0, 0, canvas.width, canvas.height)
+          ctx.globalAlpha = 1
+        }
+        drawn = pos
       }
 
       /**
-       * Recorte que acompanha o tablet: quando o quadro é mais largo que a tela, desloca-o
-       * para o ponto de interesse ficar no centro (sem nunca mostrar além da borda do vídeo).
+       * Deslocamento (translate x, em px) do quadro para o recorte acompanhar o tablet: quando
+       * o quadro é mais largo que a tela, o ponto de interesse vai para o centro, sem nunca
+       * mostrar além da borda do vídeo. `null` quando o quadro cabe inteiro.
        */
-      const followCrop = (index: number) => {
+      const cropX = (pos: number) => {
         const frameWidth = frameEl.clientWidth
         const viewWidth = frameEl.parentElement?.clientWidth ?? frameWidth
-        if (frameWidth - viewWidth < 1) {
-          frameEl.style.translate = ''
-          return
-        }
-        let focus = interpolate(CROP_FOCUS, Math.min(index, SCREEN_TRACKED_FROM - 1))
-        const quad = SCREEN_QUADS[index]
-        if (index >= SCREEN_TRACKED_FROM && quad) {
-          const screenX = (quad[0] + quad[2] + quad[4] + quad[6]) / 4
-          focus += (screenX - focus) * smoothstep((index - SCREEN_TRACKED_FROM) / 15)
-          focus += (SOURCE_WIDTH / 2 - focus) * smoothstep((index - SETTLE_FROM) / (SETTLE_TO - SETTLE_FROM))
-        }
-        const x = Math.min(-viewWidth / 2, Math.max(viewWidth / 2 - frameWidth, (-focus * frameWidth) / SOURCE_WIDTH))
-        frameEl.style.translate = `${x}px -50%`
+        if (frameWidth - viewWidth < 1) return null
+        const focus = interpolate(CROP_FOCUS, pos)
+        return Math.min(-viewWidth / 2, Math.max(viewWidth / 2 - frameWidth, (-focus * frameWidth) / SOURCE_WIDTH))
       }
 
-      /** Encaixa o painel do símbolo na tela do tablet do quadro `index`. */
-      const placePanel = (index: number) => {
-        followCrop(index)
-        const quad = SCREEN_QUADS[index]
-        if (!quad) {
-          panel.style.opacity = '0'
-          fill.style.opacity = '0'
-          return
-        }
-        const scale = frameEl.clientWidth / SOURCE_WIDTH
-        let corners = [0, 1, 2, 3].map((k) => [quad[k * 2] * scale, quad[k * 2 + 1] * scale])
-        // Fim do mergulho: a tela inclinada vira um retângulo reto, centralizado e cheio
-        const settle = smoothstep((index - SETTLE_FROM) / (SETTLE_TO - SETTLE_FROM))
-        if (settle > 0) {
-          const width = frameEl.clientWidth
-          const height = (width * PANEL_HEIGHT) / PANEL_WIDTH
-          const top = (frameEl.clientHeight - height) / 2
-          const flat = [
-            [0, top],
-            [width, top],
-            [width, top + height],
-            [0, top + height],
-          ]
-          corners = corners.map(([x, y], k) => [x + (flat[k][0] - x) * settle, y + (flat[k][1] - y) * settle])
-        }
-        const source = [
-          [0, 0],
-          [PANEL_WIDTH, 0],
-          [PANEL_WIDTH, PANEL_HEIGHT],
-          [0, PANEL_HEIGHT],
-        ]
-        panel.style.transform = homography(source, corners)
-        panel.style.opacity = String(quad[8])
-        fill.style.opacity = String(settle)
+      const followCrop = (pos: number) => {
+        const x = cropX(pos)
+        frameEl.style.translate = x === null ? '' : `${x}px -50%`
+      }
 
-        // Tela cheia num celular: o símbolo (34% da tela do tablet) ficaria maior que a
-        // própria tela; reduz até caber. Usa a propriedade `scale`, separada do transform
-        // que o GSAP anima no convite.
-        const symbol = symbolRef.current
-        if (symbol) {
-          const viewWidth = frameEl.parentElement?.clientWidth ?? frameEl.clientWidth
-          const fit = Math.min(1, (SYMBOL_MAX_SCREEN * viewWidth) / (0.34 * frameEl.clientWidth))
-          symbol.style.scale = String(1 + (fit - 1) * settle)
+      /** Retângulo da tela do tablet no último quadro, em px do painel da cena. */
+      const screenBox = () => {
+        const frameWidth = frameEl.clientWidth
+        const frameHeight = frameEl.clientHeight
+        const view = frameEl.parentElement
+        const viewWidth = view?.clientWidth ?? frameWidth
+        const viewHeight = view?.clientHeight ?? frameHeight
+        const left = viewWidth / 2 + (cropX(FRAME_COUNT - 1) ?? -frameWidth / 2)
+        const top = (viewHeight - frameHeight) / 2
+        const k = frameWidth / SOURCE_WIDTH
+        return {
+          left: left + SCREEN.left * k,
+          top: top + SCREEN.top * k,
+          width: (SCREEN.right - SCREEN.left) * k,
+          height: (SCREEN.bottom - SCREEN.top) * k,
         }
       }
 
-      const render = (index: number) => {
-        wanted = index
-        if (index !== drawn) draw(index)
-        placePanel(index)
+      /** No computador, o texto ocupa a faixa à esquerda da tela do tablet. */
+      const layoutText = () => {
+        textBox.style.width = desktop.matches ? `${Math.max(320, screenBox().left - 24)}px` : ''
       }
 
-      // Carrega os quadros só quando a seção se aproxima (são ~15 MB)
+      const render = (pos: number) => {
+        wanted = pos
+        if (pos !== drawn) draw(pos)
+        followCrop(pos)
+      }
+
+      // Carrega os quadros só quando a seção se aproxima (são ~12 MB)
       let loading = false
       const load = () => {
         if (loading) return
@@ -215,7 +190,7 @@ export function TabletSection() {
           const img = new Image()
           img.decoding = 'async'
           img.onload = () => {
-            if (i === wanted) render(i)
+            if (Math.floor(wanted) === i || Math.ceil(wanted) === i) render(wanted)
           }
           img.src = frameUrl(i)
           frames[i] = img
@@ -231,8 +206,11 @@ export function TabletSection() {
       )
       loadObserver.observe(root)
 
-      // O painel é posicionado em px do quadro: refaz ao mudar o tamanho
-      const resizeObserver = new ResizeObserver(() => placePanel(wanted))
+      // Recorte e faixa do texto dependem do tamanho do quadro: refaz ao mudar
+      const resizeObserver = new ResizeObserver(() => {
+        followCrop(wanted)
+        layoutText()
+      })
       resizeObserver.observe(frameEl)
 
       const cleanup = () => {
@@ -242,10 +220,11 @@ export function TabletSection() {
       }
 
       if (reducedMotion) {
-        // Sem a sequência: tela final com o convite; os jogos ficam empilhados (CSS)
+        // Sem a sequência: último quadro com o texto ao lado; os jogos ficam empilhados (CSS)
         gsap.set([veilRef.current, edgeRef.current], { opacity: 0 })
-        gsap.set(inviteRef.current, { autoAlpha: 1 })
+        gsap.set([...text.children, shadeRef.current], { autoAlpha: 1 })
         load()
+        layoutText()
         render(FRAME_COUNT - 1)
         // Sem cena fixa, cada parada é a posição do próprio painel na página
         const pageY = (id: string) => (document.getElementById(id)?.getBoundingClientRect().top ?? 0) + window.scrollY
@@ -268,9 +247,9 @@ export function TabletSection() {
         .fromTo(edgeRef.current, { opacity: 1 }, { opacity: 0, ease: 'power1.in', duration: 0.45 }, 0.35)
         .fromTo(zoomRef.current, { scale: 1.08 }, { scale: 1, ease: 'none', duration: 1 }, 0)
 
-      // Cena fixa: quadros do tablet → convite na tela ciano → jogos na horizontal.
+      // Cena fixa: quadros do tablet → texto voando para a tela → jogos na horizontal.
       // A timeline usa "alturas de tela" como unidade de duração.
-      const total = STEPS.frames + STEPS.invite + STEPS.perGame * GAMES.length + STEPS.hold
+      const total = STEPS.frames + STEPS.text + STEPS.perGame * GAMES.length + STEPS.hold
       const playhead = { frame: 0 }
       const scene = gsap.timeline({
         defaults: { ease: 'none' },
@@ -285,25 +264,53 @@ export function TabletSection() {
       })
       scene.to(playhead, {
         frame: FRAME_COUNT - 1,
-        snap: 'frame',
         duration: STEPS.frames,
-        onUpdate: () => render(playhead.frame),
+        // Um pouco de folga: posições fracionárias a menos de 1% de distância não redesenham
+        onUpdate: () => render(Math.round(playhead.frame * 100) / 100),
       })
 
-      // Convite: o símbolo sobe e encolhe, a chamada entra embaixo
-      const inviteAt = STEPS.frames
+      // Chamada: entra no terço esquerdo enquanto a câmera chega no tablet...
+      const textAt = STEPS.frames - 0.35
       scene
-        .to(symbolRef.current, { yPercent: -32, scale: 0.62, duration: 0.4, ease: 'power2.inOut' }, inviteAt)
+        .fromTo(shadeRef.current, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.35 }, textAt)
         .fromTo(
-          inviteRef.current,
-          { autoAlpha: 0, y: 32 },
-          { autoAlpha: 1, y: 0, duration: 0.35, ease: 'power2.out' },
-          inviteAt + 0.15,
+          text.children,
+          { autoAlpha: 0, x: -60 },
+          { autoAlpha: 1, x: 0, duration: 0.35, stagger: 0.06, ease: 'power2.out' },
+          textAt,
         )
+
+      // ...e voa para dentro da tela do tablet, que acende ao recebê-lo.
+      // O destino é calculado do layout (sem transform), e refeito a cada refresh.
+      const flyAt = STEPS.frames + 0.45
+      const flyTarget = () => {
+        const screen = screenBox()
+        return {
+          x: screen.left + screen.width / 2 - (textBox.offsetLeft + text.offsetLeft + text.offsetWidth / 2),
+          y: screen.top + screen.height / 2 - (textBox.offsetTop + text.offsetTop + text.offsetHeight / 2),
+        }
+      }
+      scene
+        .to(
+          text,
+          {
+            x: () => flyTarget().x,
+            y: () => flyTarget().y,
+            scale: 0.08,
+            autoAlpha: 0,
+            duration: 0.5,
+            ease: 'power3.in',
+            immediateRender: false,
+          },
+          flyAt,
+        )
+        .to(shadeRef.current, { autoAlpha: 0, duration: 0.4 }, flyAt + 0.1)
+        .fromTo(screenRef.current, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.12, ease: 'power1.in' }, flyAt + 0.42)
+        .to(screenRef.current, { autoAlpha: 0, duration: 0.35, ease: 'power1.out' }, flyAt + 0.54)
 
       // Jogos: a trilha anda um painel por vez e para em cada jogo; o conteúdo do painel
       // entra logo atrás. A trilha tem (jogos + 1) painéis de mesma largura.
-      const slideAt = inviteAt + STEPS.invite
+      const slideAt = STEPS.frames + STEPS.text
       const panels = GAMES.length + 1
       gsap.utils.toArray<HTMLElement>('[data-game-panel]').forEach((gamePanel, i) => {
         const at = slideAt + i * STEPS.perGame
@@ -333,6 +340,7 @@ export function TabletSection() {
       ])
 
       render(0)
+      layoutText()
       return () => {
         unregisterStops()
         cleanup()
@@ -360,38 +368,45 @@ export function TabletSection() {
               className="absolute top-1/2 left-1/2 aspect-video w-[max(100vw,177.78svh)] -translate-x-1/2 -translate-y-1/2 overflow-hidden"
             >
               <canvas ref={canvasRef} width={1600} height={900} aria-hidden className="absolute inset-0 size-full" />
-              <div ref={fillRef} aria-hidden className="absolute inset-0 opacity-0" style={{ background: SCREEN_COLOR }} />
+              {/* Luz da tela do tablet no último quadro: acende quando o texto entra nela */}
               <div
-                ref={panelRef}
+                ref={screenRef}
                 aria-hidden
-                className="absolute top-0 left-0 grid origin-top-left place-items-center opacity-0 will-change-transform"
-                style={{ width: PANEL_WIDTH, height: PANEL_HEIGHT }}
-              >
-                <img
-                  ref={symbolRef}
-                  src={cubeSymbol}
-                  alt=""
-                  className="h-auto max-h-[50%] w-[34%] object-contain drop-shadow-[0_6px_18px_rgb(0_60_70/0.25)]"
-                />
-              </div>
+                className="invisible absolute rounded-[2%] bg-[radial-gradient(ellipse_at_center,rgb(255_255_255/0.85),rgb(214_255_200/0.45)_55%,rgb(214_255_200/0)_100%)] mix-blend-screen"
+                style={{
+                  left: `${(SCREEN.left / SOURCE_WIDTH) * 100}%`,
+                  top: `${(SCREEN.top / SOURCE_HEIGHT) * 100}%`,
+                  width: `${((SCREEN.right - SCREEN.left) / SOURCE_WIDTH) * 100}%`,
+                  height: `${((SCREEN.bottom - SCREEN.top) / SOURCE_HEIGHT) * 100}%`,
+                }}
+              />
             </div>
           </div>
 
-          {/* Convite na tela ciano, abaixo do símbolo */}
+          {/* Sombra para ler o texto: da esquerda no computador, de baixo no celular */}
           <div
-            ref={inviteRef}
-            className="invisible absolute inset-x-0 bottom-[12%] px-3.5 text-center text-navy-950 lg:bottom-[14%]"
+            ref={shadeRef}
+            aria-hidden
+            className="pointer-events-none invisible absolute inset-0 bg-linear-to-t from-navy-950/85 via-navy-950/30 via-45% to-transparent to-70% lg:bg-linear-to-r lg:from-navy-950/75 lg:via-navy-950/25 lg:via-35% lg:to-55%"
+          />
+
+          {/* Chamada: no terço esquerdo (largura ajustada à tela do tablet); embaixo no celular */}
+          <div
+            ref={textBoxRef}
+            className="absolute inset-x-0 bottom-[8%] px-3.5 text-center text-snow lg:inset-y-0 lg:right-auto lg:flex lg:items-center lg:px-4.5 lg:text-left"
           >
-            <p className="text-xs font-bold tracking-[0.2em] uppercase opacity-70 sm:text-sm">
-              Escolha sua próxima aventura
-            </p>
-            <h2 className="mx-auto mt-3 max-w-3xl font-heading text-3xl leading-[1.02] font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              Seu próximo jogo favorito pode começar aqui.
-            </h2>
-            <p className="mt-4 inline-flex items-center gap-2 text-sm font-semibold opacity-75">
-              Continue rolando
-              <ArrowRight aria-hidden className="size-4" />
-            </p>
+            <div ref={textRef} className="lg:pr-2">
+              <p className="invisible text-xs font-bold tracking-[0.2em] text-orange uppercase sm:text-sm">
+                Escolha sua próxima aventura
+              </p>
+              <h2 className="invisible mx-auto mt-3 max-w-xl font-heading text-3xl leading-[1.02] font-extrabold tracking-tight text-balance drop-shadow-[0_4px_24px_rgb(0_0_0/0.35)] sm:text-5xl lg:mx-0 lg:text-4xl xl:text-5xl">
+                Seu próximo jogo favorito pode começar aqui.
+              </h2>
+              <p className="invisible mt-4 inline-flex items-center gap-2 text-sm font-semibold text-snow/80">
+                Continue rolando
+                <ArrowRight aria-hidden className="size-4" />
+              </p>
+            </div>
           </div>
 
           {/* Entrada: escurece a sala e, no topo, continua o pé do hero (navy-900) sem emenda */}
@@ -413,16 +428,9 @@ export function TabletSection() {
             className={`relative flex h-svh w-1/3 shrink-0 items-center overflow-hidden px-3.5 pt-20 pb-8 motion-reduce:w-full lg:px-4.5 lg:pt-24 ${game.panel}`}
           >
             <div className="mx-auto grid w-full max-w-[1600px] items-center gap-6 lg:grid-cols-[1.1fr_1fr] lg:gap-16">
-              {/* Arte provisória (até chegarem imagens dos jogos) */}
-              <div
-                data-reveal
-                aria-hidden
-                className={`relative grid aspect-[16/10] place-items-center overflow-hidden rounded-3xl shadow-[0_30px_80px_-30px_rgb(0_0_0/0.55)] max-lg:max-h-[34svh] max-lg:w-full ${game.art}`}
-              >
-                <game.icon
-                  strokeWidth={1.5}
-                  className="size-20 text-white drop-shadow-[0_6px_16px_rgb(0_0_0/0.35)] sm:size-28 lg:size-36"
-                />
+              {/* O jogo rodando num tablet */}
+              <div data-reveal className="mx-auto w-full max-lg:max-w-[min(100%,68svh)]">
+                <GameTablet video={game.video} poster={game.poster} title={game.name} />
               </div>
 
               <div>
@@ -483,48 +491,4 @@ function interpolate(points: [number, number][], x: number) {
     }
   }
   return points[points.length - 1][1]
-}
-
-function smoothstep(x: number) {
-  const t = Math.min(1, Math.max(0, x))
-  return t * t * (3 - 2 * t)
-}
-
-/** CSS matrix3d da homografia que leva os 4 cantos `source` aos 4 cantos `target`. */
-function homography(source: number[][], target: number[][]) {
-  const a: number[][] = []
-  const b: number[] = []
-  for (let i = 0; i < 4; i++) {
-    const [x, y] = source[i]
-    const [u, v] = target[i]
-    a.push([x, y, 1, 0, 0, 0, -u * x, -u * y])
-    b.push(u)
-    a.push([0, 0, 0, x, y, 1, -v * x, -v * y])
-    b.push(v)
-  }
-  const [h0, h1, h2, h3, h4, h5, h6, h7] = solve(a, b)
-  return `matrix3d(${h0},${h3},0,${h6},${h1},${h4},0,${h7},0,0,1,0,${h2},${h5},0,1)`
-}
-
-/** Eliminação de Gauss com pivoteamento parcial (sistema 8×8). */
-function solve(a: number[][], b: number[]) {
-  const n = b.length
-  for (let i = 0; i < n; i++) {
-    let pivot = i
-    for (let r = i + 1; r < n; r++) if (Math.abs(a[r][i]) > Math.abs(a[pivot][i])) pivot = r
-    ;[a[i], a[pivot]] = [a[pivot], a[i]]
-    ;[b[i], b[pivot]] = [b[pivot], b[i]]
-    for (let r = i + 1; r < n; r++) {
-      const f = a[r][i] / a[i][i]
-      for (let c = i; c < n; c++) a[r][c] -= f * a[i][c]
-      b[r] -= f * b[i]
-    }
-  }
-  const x = new Array<number>(n)
-  for (let i = n - 1; i >= 0; i--) {
-    let s = b[i]
-    for (let c = i + 1; c < n; c++) s -= a[i][c] * x[c]
-    x[i] = s / a[i][i]
-  }
-  return x
 }
