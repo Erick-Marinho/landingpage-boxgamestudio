@@ -1,7 +1,8 @@
 import { useRef } from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { gsap, useGSAP } from '@/lib/gsap'
 import { registerStops } from '@/lib/scroll-stops'
+import { externalProps, GAME_LINKS } from '@/lib/site-links'
 import { GameTablet } from './tablet/GameTablet'
 
 /**
@@ -43,7 +44,7 @@ const STEPS = { frames: 3.5, text: 1.2, perGame: 1.2, slide: 0.6, hold: 0.3 }
 
 const GAMES = [
   {
-    id: 'vida-na-fazenda',
+    id: 'vida-na-fazenda' as const,
     label: 'Jogo 01 · Navegador',
     name: 'Vida na Fazenda',
     tagline: 'Um mundo que cresce com você.',
@@ -64,17 +65,17 @@ const GAMES = [
     button: 'bg-[#2f8f46] text-white shadow-[0_4px_0_0_#1d5e2d] hover:bg-[#37a352]',
   },
   {
-    id: 'spike-rush',
-    label: 'Jogo 02 · Android',
+    id: 'spike-rush' as const,
+    label: 'Jogo 02 · Navegador',
     name: 'Spike Rush',
     tagline: 'O próximo ponto é seu.',
     body: [
       'A areia é sua arena. O tempo de cada toque faz a diferença.',
-      'Escolha seu personagem, domine saques e cortadas e entre no ritmo de partidas de vôlei 3 contra 3 cheias de energia. Treine suas habilidades ou desafie outros jogadores nas partidas online do aplicativo.',
+      'Escolha seu personagem, domine saques e cortadas e entre no ritmo de partidas de vôlei 3 contra 3 cheias de energia. Treine suas habilidades ou desafie outros jogadores em partidas online.',
     ],
-    highlights: ['Vôlei 3v3', 'Personagens com habilidades únicas', 'Partidas online no app'],
+    highlights: ['Vôlei 3v3', 'Personagens com habilidades únicas', 'Partidas online'],
     cta: 'Entrar em quadra',
-    note: 'Grátis para jogar. Disponível para testes no Android.',
+    note: 'Grátis para jogar no navegador.',
     video: 'games/spike-rush.mp4',
     poster: 'games/spike-rush.webp',
     // Quadra de praia ao entardecer: energia, sol forte e areia
@@ -463,13 +464,17 @@ export function TabletSection() {
                 </ul>
                 <div data-reveal className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
                   <a
-                    href={`#${game.id}`}
+                    href={GAME_LINKS[game.id].play}
+                    {...externalProps(GAME_LINKS[game.id].play)}
                     className={`inline-flex h-12 items-center gap-2 rounded-xl px-6 text-base font-bold transition-[transform,background-color] hover:-translate-y-0.5 ${game.button}`}
                   >
                     {game.cta}
-                    <ArrowRight aria-hidden className="size-4" />
+                    <ArrowUpRight aria-hidden className="size-4" />
                   </a>
-                  <p className={`text-sm ${game.muted}`}>{game.note}</p>
+                  <div className={`text-sm ${game.muted}`}>
+                    <p>{game.note}</p>
+                    <FollowLink href={GAME_LINKS[game.id].instagram} />
+                  </div>
                 </div>
               </div>
             </div>
@@ -477,6 +482,21 @@ export function TabletSection() {
         ))}
       </div>
     </section>
+  )
+}
+
+/** Link discreto para o Instagram do jogo, quando ele tiver um. */
+function FollowLink({ href }: { href: string | null }) {
+  if (!href) return null
+  return (
+    <a
+      href={href}
+      {...externalProps(href)}
+      className="mt-1 inline-flex items-center gap-1 font-semibold underline decoration-current/30 underline-offset-4 transition-opacity hover:opacity-70"
+    >
+      Siga o jogo no Instagram
+      <ArrowUpRight aria-hidden className="size-3.5" />
+    </a>
   )
 }
 

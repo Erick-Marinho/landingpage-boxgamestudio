@@ -1,7 +1,7 @@
 import { type MouseEvent, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Menu, X } from 'lucide-react'
 import { ScrollTrigger } from '@/lib/gsap'
-import { getStops, subscribeStops } from '@/lib/scroll-stops'
+import { getStops, scrollToStop, subscribeStops } from '@/lib/scroll-stops'
 
 /** Quanto antes (fração da altura da tela) uma parada já conta como a atual. */
 const ACTIVE_OFFSET = 0.35
@@ -68,8 +68,7 @@ export function SideNav() {
   const goTo = (event: MouseEvent<HTMLAnchorElement>, index: number) => {
     event.preventDefault()
     setOpen(false)
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    window.scrollTo({ top: stops[index].getY(), behavior: reducedMotion ? 'auto' : 'smooth' })
+    scrollToStop(stops[index])
   }
 
   return (

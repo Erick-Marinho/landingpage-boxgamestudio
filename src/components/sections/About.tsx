@@ -1,5 +1,4 @@
 import { useRef } from 'react'
-import { ArrowRight } from 'lucide-react'
 import cubeSymbol from '@/assets/brand/simbolo-cubo.svg'
 import { useSection } from '@/hooks/use-section'
 import { gsap, useGSAP } from '@/lib/gsap'
@@ -86,7 +85,17 @@ export function About() {
             Independentes por essência. <span className="text-cyan">Criativos por natureza.</span>
           </h2>
           <div data-reveal className="mt-6 max-w-xl space-y-4 text-base leading-relaxed text-mist sm:text-lg">
-            <p>A Box Game Studio nasceu no Brasil, em 2013, fundada por Luiz Felipe Teixeira.</p>
+            <p>
+              A Box Game Studio nasceu no Brasil, em 2013, fundada por{' '}
+              <a
+                href={SITE_LINKS.founderInstagram}
+                {...externalProps(SITE_LINKS.founderInstagram)}
+                className="font-semibold text-snow underline decoration-cyan/60 decoration-2 underline-offset-4 transition-colors hover:text-cyan"
+              >
+                Luiz Felipe Teixeira
+              </a>
+              .
+            </p>
             <p>
               Somos movidos pela vontade de transformar ideias em mundos interativos, personagens marcantes e
               experiências que fazem cada minuto valer a pena.
@@ -105,16 +114,6 @@ export function About() {
               </div>
             ))}
           </dl>
-
-          <a
-            data-reveal
-            href={SITE_LINKS.studio}
-            {...externalProps(SITE_LINKS.studio)}
-            className="mt-10 inline-flex h-12 items-center gap-2 rounded-xl border-2 border-cyan/70 px-6 text-base font-bold text-cyan shadow-[0_4px_0_0_var(--color-cobalt)] transition-[translate,background-color] hover:-translate-y-0.5 hover:bg-cyan/10"
-          >
-            Conheça nosso estúdio
-            <ArrowRight aria-hidden className="size-4" />
-          </a>
         </div>
       </div>
     </section>

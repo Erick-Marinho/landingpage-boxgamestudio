@@ -26,7 +26,7 @@ const GAMES = [
   {
     name: 'Spike Rush',
     tagline: 'O próximo ponto é seu.',
-    note: 'Teste no Android',
+    note: 'Grátis no navegador',
     icon: Volleyball,
     art: 'bg-[radial-gradient(circle_at_72%_20%,#fff7ed_0,transparent_32%),linear-gradient(180deg,#7dd3fc_0%,#0ea5e9_55%,#fbbf24_55%,#f59e0b_100%)]',
   },

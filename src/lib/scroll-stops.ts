@@ -35,6 +35,12 @@ export function getStops() {
   return snapshot
 }
 
+/** Rola até a parada (suave, ou direto com "reduzir movimento"). */
+export function scrollToStop(stop: ScrollStop) {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  window.scrollTo({ top: stop.getY(), behavior: reducedMotion ? 'auto' : 'smooth' })
+}
+
 export function subscribeStops(listener: () => void) {
   listeners.add(listener)
   return () => {
