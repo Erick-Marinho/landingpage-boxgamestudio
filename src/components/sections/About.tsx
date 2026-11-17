@@ -15,11 +15,22 @@ export function About() {
   const rootRef = useRef<HTMLElement>(null)
   useSection(rootRef, { id: 'estudio', label: 'Estúdio', order: 30 })
 
-  // O símbolo flutua devagar e o "2013" de fundo desliza com o scroll (parallax leve)
+  // Entrada: primeiro o cubo, depois os dígitos de 2013 sobem um a um na frente dele.
+  // Em seguida o cubo flutua devagar e o "2013" desliza com o scroll (parallax leve).
   useGSAP(
     () => {
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-      gsap.to('[data-about="symbol"]', { y: -14, rotate: -3, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+      gsap
+        .timeline({ scrollTrigger: { trigger: '[data-about="visual"]', start: 'top 70%', once: true } })
+        .from('[data-about="symbol"]', { scale: 0.6, rotate: -12, autoAlpha: 0, duration: 0.8, ease: 'back.out(1.6)' })
+        .from(
+          '[data-about="digit"]',
+          { yPercent: 70, autoAlpha: 0, duration: 0.6, stagger: 0.12, ease: 'power3.out' },
+          '-=0.25',
+        )
+        .add(() => {
+          gsap.to('[data-about="symbol"]', { y: -14, rotate: -3, duration: 3.2, repeat: -1, yoyo: true, ease: 'sine.inOut' })
+        })
       gsap.fromTo(
         '[data-about="year"]',
         { xPercent: 8 },
@@ -37,21 +48,30 @@ export function About() {
       className="relative overflow-hidden bg-navy-950 px-3.5 py-24 text-snow lg:px-4.5 lg:py-40"
     >
       <div className="grid items-center gap-14 lg:grid-cols-2 lg:gap-20">
-        {/* Visual: o símbolo sobre o ano de fundação, em contorno */}
-        <div aria-hidden className="relative grid place-items-center py-10 lg:order-2 lg:py-0">
-          <span
-            data-about="year"
-            className="pointer-events-none absolute font-heading text-[clamp(7rem,24vw,22rem)] leading-none font-extrabold tracking-tighter text-transparent [-webkit-text-stroke:2px_rgb(82_211_255/0.18)]"
-          >
-            2013
-          </span>
+        {/* Visual: o cubo atrás do ano de fundação, que fica na frente em contorno */}
+        <div
+          data-about="visual"
+          aria-hidden
+          className="relative grid place-items-center py-10 lg:order-2 lg:py-0"
+        >
           <div className="absolute size-[60%] rounded-full bg-[radial-gradient(circle,rgb(4_159_223/0.35),transparent_65%)]" />
           <img
             data-about="symbol"
             src={cubeSymbol}
             alt=""
-            className="relative w-[46%] max-w-xs drop-shadow-[0_30px_40px_rgb(0_0_0/0.5)]"
+            className="relative w-[40%] max-w-xs drop-shadow-[0_30px_40px_rgb(0_0_0/0.5)]"
           />
+          {/* Contorno claro com preenchimento escuro translúcido: lê bem até sobre o cubo */}
+          <span
+            data-about="year"
+            className="pointer-events-none absolute z-10 flex font-heading text-[clamp(7rem,24vw,22rem)] leading-none font-extrabold tracking-tighter text-[rgb(5_11_23/0.35)] [-webkit-text-stroke:2px_rgb(243_248_255/0.7)]"
+          >
+            {'2013'.split('').map((digit, i) => (
+              <span key={i} data-about="digit" className="inline-block">
+                {digit}
+              </span>
+            ))}
+          </span>
         </div>
 
         <div>
