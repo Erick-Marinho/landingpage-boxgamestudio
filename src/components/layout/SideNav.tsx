@@ -7,8 +7,8 @@ const ACTIVE_OFFSET = 0.35
 
 /**
  * Navegação lateral: um ponto por parada da página, o atual maior e laranja.
- * Ao passar o mouse (ou focar pelo teclado), abre uma pílula com o nome de cada parada
- * ao lado do seu ponto, para escolher para onde ir.
+ * Ao passar o mouse sobre um ponto (ou focá-lo pelo teclado), abre ao lado dele uma pílula
+ * com o nome daquela parada; clicar leva até ela.
  */
 export function SideNav() {
   const stops = useSyncExternalStore(subscribeStops, getStops)
@@ -50,9 +50,9 @@ export function SideNav() {
   return (
     <nav
       aria-label="Seções da página"
-      className="group fixed top-1/2 right-3.5 z-40 hidden -translate-y-1/2 md:block lg:right-4.5"
+      className="fixed top-1/2 right-3.5 z-40 hidden -translate-y-1/2 md:block lg:right-4.5"
     >
-      <ul className="flex flex-col items-end gap-0.5 rounded-[26px] border border-transparent p-1.5 transition-[background-color,border-color,backdrop-filter] duration-300 group-focus-within:border-white/10 group-focus-within:bg-navy-950/80 group-focus-within:backdrop-blur-md group-hover:border-white/10 group-hover:bg-navy-950/80 group-hover:backdrop-blur-md">
+      <ul className="flex flex-col items-center gap-1">
         {stops.map((stop, i) => {
           const current = i === active
           return (
@@ -61,18 +61,22 @@ export function SideNav() {
                 href={`#${stop.id}`}
                 onClick={(event) => goTo(event, i)}
                 aria-current={current ? 'true' : undefined}
-                className="flex items-center justify-end gap-3 rounded-full py-1.5 pr-1 pl-1 outline-none transition-colors group-hover:pl-3.5 group-focus-within:pl-3.5 hover:bg-white/10 focus-visible:bg-white/10"
+                className="group/dot relative grid size-6 place-items-center rounded-full outline-none"
               >
+                {/* Pílula com o nome: só a do ponto sob o mouse (ou com foco do teclado) */}
                 <span
-                  className={`max-w-0 overflow-hidden text-[11px] font-medium tracking-[0.2em] whitespace-nowrap uppercase opacity-0 transition-[max-width,opacity] duration-300 group-focus-within:max-w-48 group-focus-within:opacity-100 group-hover:max-w-48 group-hover:opacity-100 ${current ? 'text-orange' : 'text-snow'}`}
+                  className={`pointer-events-none absolute top-1/2 right-full mr-2 -translate-y-1/2 translate-x-1 rounded-full border border-white/10 bg-navy-950/85 px-3.5 py-1.5 text-[11px] font-medium tracking-[0.2em] whitespace-nowrap uppercase opacity-0 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.6)] backdrop-blur-md transition-[opacity,translate] duration-200 group-hover/dot:translate-x-0 group-hover/dot:opacity-100 group-focus-visible/dot:translate-x-0 group-focus-visible/dot:opacity-100 ${current ? 'text-orange' : 'text-snow'}`}
                 >
                   {stop.label}
                 </span>
                 {/* Ponto: área fixa para todos alinharem; o atual é maior e laranja */}
-                <span aria-hidden className="grid size-4 shrink-0 place-items-center">
+                <span aria-hidden className="grid size-4 shrink-0 place-items-center transition-transform group-hover/dot:scale-125">
                   <span
-                    className={`rounded-full shadow-[0_0_0_1px_rgb(5_11_23/0.35)] transition-all duration-300 ${
-                      current ? 'size-3.5 bg-orange' : 'size-2.5 bg-mist/70'
+                    // Anel escuro: o ponto aparece até sobre fundos claros ou laranja
+                    className={`rounded-full transition-all duration-300 ${
+                      current
+                        ? 'size-3.5 bg-orange shadow-[0_0_0_2px_rgb(5_11_23/0.85)]'
+                        : 'size-2.5 bg-mist/70 shadow-[0_0_0_1px_rgb(5_11_23/0.35)]'
                     }`}
                   />
                 </span>
