@@ -29,6 +29,25 @@ const SETTLE_FROM = 329
 const SETTLE_TO = 351
 /** Cor da tela acesa do tablet (amostrada do vídeo). */
 const SCREEN_COLOR = '#6af3f0'
+/**
+ * Telas mais estreitas que 16:9 (celular em pé) recortam o vídeo nas laterais. O recorte
+ * segue este ponto (x no vídeo original): [quadro, x]. Rosto e tablet não cabem juntos
+ * num celular em pé, então o recorte começa no rosto (com a borda do tablet) e vai até o
+ * tablet enquanto a câmera gira, como uma panorâmica. A partir de SCREEN_TRACKED_FROM vale
+ * o centro da tela rastreada, e no assentamento o centro do vídeo (onde fica o símbolo).
+ */
+const CROP_FOCUS: [number, number][] = [
+  [0, 820],
+  [50, 860],
+  [95, 1010],
+  [120, 1080],
+  [180, 1110],
+  [230, 1110],
+  [252, 1090],
+]
+const SCREEN_TRACKED_FROM = 253
+/** No fim, o símbolo ocupa no máximo esta fração da largura da tela (celular). */
+const SYMBOL_MAX_SCREEN = 0.6
 /** Duração de cada etapa, em alturas de tela de scroll (a cena fica fixa o tempo todo). */
 const STEPS = { frames: 3.5, invite: 1, perGame: 1.2, slide: 0.6, hold: 0.3 }
 
@@ -113,8 +132,31 @@ export function TabletSection() {
         drawn = index
       }
 
+      /**
+       * Recorte que acompanha o tablet: quando o quadro é mais largo que a tela, desloca-o
+       * para o ponto de interesse ficar no centro (sem nunca mostrar além da borda do vídeo).
+       */
+      const followCrop = (index: number) => {
+        const frameWidth = frameEl.clientWidth
+        const viewWidth = frameEl.parentElement?.clientWidth ?? frameWidth
+        if (frameWidth - viewWidth < 1) {
+          frameEl.style.translate = ''
+          return
+        }
+        let focus = interpolate(CROP_FOCUS, Math.min(index, SCREEN_TRACKED_FROM - 1))
+        const quad = SCREEN_QUADS[index]
+        if (index >= SCREEN_TRACKED_FROM && quad) {
+          const screenX = (quad[0] + quad[2] + quad[4] + quad[6]) / 4
+          focus += (screenX - focus) * smoothstep((index - SCREEN_TRACKED_FROM) / 15)
+          focus += (SOURCE_WIDTH / 2 - focus) * smoothstep((index - SETTLE_FROM) / (SETTLE_TO - SETTLE_FROM))
+        }
+        const x = Math.min(-viewWidth / 2, Math.max(viewWidth / 2 - frameWidth, (-focus * frameWidth) / SOURCE_WIDTH))
+        frameEl.style.translate = `${x}px -50%`
+      }
+
       /** Encaixa o painel do símbolo na tela do tablet do quadro `index`. */
       const placePanel = (index: number) => {
+        followCrop(index)
         const quad = SCREEN_QUADS[index]
         if (!quad) {
           panel.style.opacity = '0'
@@ -146,6 +188,16 @@ export function TabletSection() {
         panel.style.transform = homography(source, corners)
         panel.style.opacity = String(quad[8])
         fill.style.opacity = String(settle)
+
+        // Tela cheia num celular: o símbolo (34% da tela do tablet) ficaria maior que a
+        // própria tela; reduz até caber. Usa a propriedade `scale`, separada do transform
+        // que o GSAP anima no convite.
+        const symbol = symbolRef.current
+        if (symbol) {
+          const viewWidth = frameEl.parentElement?.clientWidth ?? frameEl.clientWidth
+          const fit = Math.min(1, (SYMBOL_MAX_SCREEN * viewWidth) / (0.34 * frameEl.clientWidth))
+          symbol.style.scale = String(1 + (fit - 1) * settle)
+        }
       }
 
       const render = (index: number) => {
@@ -302,10 +354,10 @@ export function TabletSection() {
         <div className="relative h-svh w-1/3 shrink-0 overflow-hidden motion-reduce:w-full">
           {/* Zoom de entrada num invólucro próprio: o GSAP não mexe no centralizado do quadro */}
           <div ref={zoomRef} className="absolute inset-0">
-            {/* Quadro 16:9: cobre a tela no desktop; no celular cabe inteiro na largura */}
+            {/* Quadro 16:9 cobrindo a tela; em telas estreitas o recorte segue o tablet (followCrop) */}
             <div
               ref={frameRef}
-              className="absolute top-1/2 left-1/2 aspect-video w-[min(100vw,177.78svh)] -translate-x-1/2 -translate-y-1/2 overflow-hidden lg:w-[max(100vw,177.78svh)]"
+              className="absolute top-1/2 left-1/2 aspect-video w-[max(100vw,177.78svh)] -translate-x-1/2 -translate-y-1/2 overflow-hidden"
             >
               <canvas ref={canvasRef} width={1600} height={900} aria-hidden className="absolute inset-0 size-full" />
               <div ref={fillRef} aria-hidden className="absolute inset-0 opacity-0" style={{ background: SCREEN_COLOR }} />
@@ -418,6 +470,19 @@ export function TabletSection() {
       </div>
     </section>
   )
+}
+
+/** Interpolação linear numa lista de pares [x, y] ordenada por x. */
+function interpolate(points: [number, number][], x: number) {
+  if (x <= points[0][0]) return points[0][1]
+  for (let i = 1; i < points.length; i++) {
+    const [x1, y1] = points[i]
+    if (x <= x1) {
+      const [x0, y0] = points[i - 1]
+      return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0)
+    }
+  }
+  return points[points.length - 1][1]
 }
 
 function smoothstep(x: number) {
