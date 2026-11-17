@@ -146,4 +146,10 @@
   html {
     @apply font-sans;
     }
+  /* Foco do teclado bem visível em todo o site (o mouse não mostra o anel) */
+  :focus-visible {
+    outline: 3px solid var(--color-cyan);
+    outline-offset: 3px;
+    border-radius: 0.5rem;
+  }
 }

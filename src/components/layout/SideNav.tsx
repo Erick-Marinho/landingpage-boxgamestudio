@@ -86,7 +86,7 @@ export function SideNav() {
                   href={`#${stop.id}`}
                   onClick={(event) => goTo(event, i)}
                   aria-current={current ? 'true' : undefined}
-                  className="group/dot relative grid size-6 place-items-center rounded-full outline-none"
+                  className="group/dot relative grid size-6 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-cyan"
                 >
                   {/* Pílula com o nome: só a do ponto sob o mouse (ou com foco do teclado) */}
                   <span

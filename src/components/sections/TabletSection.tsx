@@ -62,7 +62,7 @@ const GAMES = [
     panel: 'bg-[linear-gradient(180deg,#bfe8ff_0%,#e6f7ff_45%,#fff4d6_100%)] text-navy-950',
     muted: 'text-navy-800/80',
     chip: 'border-navy-950/15 bg-white/60',
-    button: 'bg-[#2f8f46] text-white shadow-[0_4px_0_0_#1d5e2d] hover:bg-[#37a352]',
+    button: 'bg-[#267a3a] text-white shadow-[0_4px_0_0_#184f26] hover:bg-[#2c8743]',
   },
   {
     id: 'spike-rush' as const,
@@ -86,7 +86,19 @@ const GAMES = [
   },
 ]
 
-const frameUrl = (index: number) => `${import.meta.env.BASE_URL}tablet/${String(index + 1).padStart(3, '0')}.webp`
+/**
+ * Celular em pé: só uma faixa estreita do quadro aparece (o recorte segue CROP_FOCUS). Para
+ * não baixar 16 MB e mostrar um quarto, há uma versão só com uma faixa de BAND_WIDTH px de
+ * cada quadro, centrada no mesmo ponto (public/tablet/m, ~6 MB), na resolução cheia.
+ * Usada quando a parte visível do quadro cabe na faixa (com folga).
+ */
+const BAND_WIDTH = 608
+const BAND_FIT = BAND_WIDTH - 40
+const bandLeft = (index: number) =>
+  Math.round(Math.min(SOURCE_WIDTH - BAND_WIDTH, Math.max(0, interpolate(CROP_FOCUS, index) - BAND_WIDTH / 2)))
+
+const frameUrl = (index: number, band: boolean) =>
+  `${import.meta.env.BASE_URL}tablet/${band ? 'm/' : ''}${String(index + 1).padStart(3, '0')}.webp`
 
 export function TabletSection() {
   const rootRef = useRef<HTMLElement>(null)
@@ -114,11 +126,20 @@ export function TabletSection() {
 
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       const desktop = window.matchMedia('(min-width: 1024px)')
-      const frames: HTMLImageElement[] = []
+      let frames: HTMLImageElement[] = []
+      /** Quadros carregados: null = ainda nada; true = faixas do celular; false = quadros inteiros. */
+      let band: boolean | null = null
       let wanted = reducedMotion ? FRAME_COUNT - 1 : 0
       let drawn = -1
 
       const ready = (img?: HTMLImageElement) => !!img?.complete && !!img.naturalWidth
+
+      /** Põe o quadro `index` no canvas: inteiro, ou a faixa no lugar dela. */
+      const paint = (index: number) => {
+        const img = frames[index]
+        if (band) ctx.drawImage(img, bandLeft(index), 0, BAND_WIDTH, canvas.height)
+        else ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      }
 
       /** Desenha a posição `pos` (fracionária): o quadro de baixo e, por cima, a fusão com o seguinte. */
       const draw = (pos: number) => {
@@ -126,13 +147,20 @@ export function TabletSection() {
         const mix = pos - i
         if (!ready(frames[i])) return
         ctx.globalAlpha = 1
-        ctx.drawImage(frames[i], 0, 0, canvas.width, canvas.height)
+        paint(i)
         if (mix > 0.02 && ready(frames[i + 1])) {
           ctx.globalAlpha = mix
-          ctx.drawImage(frames[i + 1], 0, 0, canvas.width, canvas.height)
+          paint(i + 1)
           ctx.globalAlpha = 1
         }
         drawn = pos
+      }
+
+      /** A parte visível do quadro (em px do vídeo de origem) cabe na faixa do celular? */
+      const fitsBand = () => {
+        const frameWidth = frameEl.clientWidth
+        const viewWidth = frameEl.parentElement?.clientWidth ?? frameWidth
+        return frameWidth > 0 && (viewWidth / frameWidth) * SOURCE_WIDTH <= BAND_FIT
       }
 
       /**
@@ -182,20 +210,31 @@ export function TabletSection() {
         followCrop(pos)
       }
 
-      // Carrega os quadros só quando a seção se aproxima (são ~16 MB)
+      // Carrega os quadros só quando a seção se aproxima: as faixas no celular em pé (~6 MB),
+      // os quadros inteiros no resto (~16 MB). Se a tela alargar depois (celular deitado),
+      // troca pelas inteiras; o caminho inverso não precisa (as inteiras servem para tudo).
       let loading = false
-      const load = () => {
-        if (loading) return
-        loading = true
-        for (let i = 0; i < FRAME_COUNT; i++) {
+      const loadSet = (useBand: boolean) => {
+        for (const img of frames) img.onload = null
+        band = useBand
+        drawn = -1
+        frames = Array.from({ length: FRAME_COUNT }, (_, i) => {
           const img = new Image()
           img.decoding = 'async'
           img.onload = () => {
             if (Math.floor(wanted) === i || Math.ceil(wanted) === i) render(wanted)
           }
-          img.src = frameUrl(i)
-          frames[i] = img
-        }
+          img.src = frameUrl(i, useBand)
+          return img
+        })
+      }
+      const load = () => {
+        if (loading) return
+        loading = true
+        loadSet(fitsBand())
+      }
+      const checkSet = () => {
+        if (band && !fitsBand()) loadSet(false)
       }
       const loadObserver = new IntersectionObserver(
         ([entry]) => {
@@ -209,6 +248,7 @@ export function TabletSection() {
 
       // Recorte e faixa do texto dependem do tamanho do quadro: refaz ao mudar
       const resizeObserver = new ResizeObserver(() => {
+        checkSet()
         followCrop(wanted)
         layoutText()
       })
@@ -319,7 +359,7 @@ export function TabletSection() {
           .to(track, { xPercent: (-100 / panels) * (i + 1), duration: STEPS.slide, ease: 'power2.inOut' }, at)
           .from(
             gamePanel.querySelectorAll('[data-reveal]'),
-            { x: 140, autoAlpha: 0, duration: 0.45, stagger: 0.05, ease: 'power2.out' },
+            { x: 140, opacity: 0, duration: 0.45, stagger: 0.05, ease: 'power2.out' },
             at + STEPS.slide * 0.55,
           )
           // Ponto da navegação lateral: painel parado e conteúdo já à mostra
@@ -340,9 +380,34 @@ export function TabletSection() {
         })),
       ])
 
+      // Teclado: os painéis dos jogos ficam fora da tela (à direita) até a trilha andar. Se o
+      // foco chega num deles, o navegador tentaria rolar a seção de lado (ela esconde o
+      // excesso, mas ainda rola por código) e quebraria a cena: em vez disso, a página vai até
+      // a parada daquele jogo e a seção volta ao lugar.
+      const goToPanel = (panel: HTMLElement | null | undefined) => {
+        if (root.scrollLeft) root.scrollLeft = 0
+        if (root.scrollTop) root.scrollTop = 0
+        const y = panel ? scene.scrollTrigger?.labelToScroll(panel.id) : undefined
+        if (y !== undefined && Math.abs(window.scrollY - y) > 2) window.scrollTo({ top: y, behavior: 'auto' })
+      }
+      const panelOf = (el: Element | null) => el?.closest<HTMLElement>('[data-game-panel]')
+      // O navegador rola até o elemento focado logo depois do focusin: corrige em seguida
+      const onFocusIn = (event: FocusEvent) => {
+        const panel = panelOf(event.target as Element)
+        window.setTimeout(() => goToPanel(panel), 0)
+      }
+      // Rede de segurança: se a seção rolou de lado mesmo assim, desfaz e vai ao jogo focado
+      const onRootScroll = () => {
+        if (root.scrollLeft || root.scrollTop) goToPanel(panelOf(document.activeElement))
+      }
+      root.addEventListener('focusin', onFocusIn)
+      root.addEventListener('scroll', onRootScroll)
+
       render(0)
       layoutText()
       return () => {
+        root.removeEventListener('focusin', onFocusIn)
+        root.removeEventListener('scroll', onRootScroll)
         unregisterStops()
         cleanup()
       }

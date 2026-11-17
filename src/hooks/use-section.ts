@@ -29,11 +29,13 @@ export function useSection(ref: RefObject<HTMLElement | null>, { id, label, orde
       if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
       const items = gsap.utils.toArray<HTMLElement>('[data-reveal]', ref.current)
       if (!items.length) return
-      gsap.set(items, { y: 36, autoAlpha: 0 })
+      // Só opacidade (não visibility): o conteúdo continua alcançável pelo Tab antes de aparecer;
+      // ao receber foco a página rola até ele e a entrada acontece.
+      gsap.set(items, { y: 36, opacity: 0 })
       ScrollTrigger.batch(items, {
         start: 'top 88%',
         once: true,
-        onEnter: (batch) => gsap.to(batch, { y: 0, autoAlpha: 1, duration: 0.8, stagger: 0.08, ease: 'power3.out' }),
+        onEnter: (batch) => gsap.to(batch, { y: 0, opacity: 1, duration: 0.8, stagger: 0.08, ease: 'power3.out' }),
       })
     },
     { scope: ref },
