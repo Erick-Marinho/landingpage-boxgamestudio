@@ -1,5 +1,6 @@
 import { SiteHeader } from '@/components/layout/SiteHeader'
 import { Hero } from '@/components/sections/Hero'
+import { TabletSection } from '@/components/sections/TabletSection'
 
 function App() {
   return (
@@ -7,6 +8,7 @@ function App() {
       <SiteHeader />
       <main className="bg-navy-900">
         <Hero />
+        <TabletSection />
       </main>
     </>
   )

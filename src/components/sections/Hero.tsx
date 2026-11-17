@@ -178,12 +178,14 @@ export function Hero() {
     { scope: rootRef },
   )
 
+  // z-10: o hero fica acima da seção do tablet; a camada do vídeo de lá vazava 1 px
+  // acima da própria borda (um fio claro na emenda) e assim fica coberta pelo hero.
   return (
     <section
       id="inicio"
       ref={rootRef}
       aria-labelledby="hero-title"
-      className="relative isolate flex min-h-svh overflow-hidden bg-navy-900 text-snow"
+      className="relative isolate z-10 flex min-h-svh overflow-hidden bg-navy-900 text-snow"
     >
       {/* Fundo: azul-noite com um brilho atrás do cubo */}
       <div
@@ -192,10 +194,11 @@ export function Hero() {
       />
       {/* Cena 3D (recebe arrastar/tocar no cubo) */}
       <div ref={sceneRef} aria-hidden className="absolute inset-0 -z-20" />
-      {/* Véus para legibilidade do texto */}
+      {/* Véus para legibilidade do texto. O de baixo também fecha o hero em navy-900 puro,
+          a mesma cor em que a seção seguinte (tablet) começa — sem emenda entre as duas */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-3/4 bg-linear-to-t from-navy-900 via-navy-900/75 to-transparent lg:hidden"
+        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-3/4 bg-linear-to-t from-navy-900 via-navy-900/75 to-transparent lg:h-32 lg:via-navy-900/40"
       />
       <div
         aria-hidden
@@ -203,7 +206,7 @@ export function Hero() {
       />
 
       {/* pointer-events-none no contêiner para o cubo receber cliques fora do texto */}
-      <div className="pointer-events-none mx-auto flex w-full max-w-7xl flex-col justify-end px-4 pt-28 pb-10 max-lg:short:pt-20 max-lg:short:pb-6 sm:px-6 sm:pb-16 lg:justify-center lg:px-8 lg:pb-24">
+      <div className="pointer-events-none flex w-full flex-col justify-end px-3.5 pt-28 pb-10 max-lg:short:pt-20 max-lg:short:pb-6 sm:pb-16 lg:justify-center lg:px-4.5 lg:pb-24">
         <div ref={contentRef} className="pointer-events-auto relative max-w-xl">
           <div ref={heroTextRef}>
             <h1

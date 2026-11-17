@@ -23,7 +23,8 @@ export function SiteHeader() {
 
   return (
     <header ref={headerRef} className="absolute inset-x-0 top-0 z-50">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-20 lg:px-8">
+      {/* Margem lateral = distância do topo até o logo ((h-16 − h-9) / 2 e (h-20 − h-11) / 2) */}
+      <div className="flex h-16 items-center justify-between px-3.5 lg:h-20 lg:px-4.5">
         <a href="#inicio" className="shrink-0" aria-label="Box Game Studio — início">
           <img src={logo} alt="Box Game Studio" width={364} height={132} className="h-9 w-auto lg:h-11" />
         </a>
