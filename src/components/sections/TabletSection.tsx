@@ -181,7 +181,7 @@ export function TabletSection() {
         followCrop(pos)
       }
 
-      // Carrega os quadros só quando a seção se aproxima (são ~12 MB)
+      // Carrega os quadros só quando a seção se aproxima (são ~16 MB)
       let loading = false
       const load = () => {
         if (loading) return
@@ -367,7 +367,7 @@ export function TabletSection() {
               ref={frameRef}
               className="absolute top-1/2 left-1/2 aspect-video w-[max(100vw,177.78svh)] -translate-x-1/2 -translate-y-1/2 overflow-hidden"
             >
-              <canvas ref={canvasRef} width={1600} height={900} aria-hidden className="absolute inset-0 size-full" />
+              <canvas ref={canvasRef} width={1920} height={1080} aria-hidden className="absolute inset-0 size-full" />
               {/* Luz da tela do tablet no último quadro: acende quando o texto entra nela */}
               <div
                 ref={screenRef}
